@@ -1,0 +1,4 @@
+requests>=2.31.0
+colorama>=0.4.6
+pytz>=2023.3
+solders>=0.18.1
