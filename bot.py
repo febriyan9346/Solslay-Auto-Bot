@@ -31,7 +31,7 @@ class SolslayBot:
         self.enable_quest = True
         self.enable_bet = True
         self.enable_boss = True
-        self.bet_amount = 50
+        self.bet_amount = 25
         self.boss_multiplier = 10
         self.boss_attack_count = 2
         self.loop_delay = 3600
