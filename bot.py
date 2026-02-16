@@ -191,8 +191,26 @@ class SolslayBot:
     def process_quests(self, token, proxy):
         if not self.enable_quest: return
         self.log("Processing Quests...", "INFO")
-        url_list = "https://solslay.com/api/quests/list"
         proxies = self.get_proxy_dict(proxy)
+        
+        daily_ids = ["twitter-post-daily-1", "twitter-post-daily-3"]
+        for q_id in daily_ids:
+            try:
+                res_start = requests.post(f"https://solslay.com/api/quests/start/{q_id}", json={}, headers=self.get_headers(token), proxies=proxies, timeout=20)
+                if res_start.status_code in [200, 201]:
+                    data_start = res_start.json()
+                    if data_start.get("success"):
+                        self.log(f"Started Daily Quest: {q_id}", "INFO")
+                        time.sleep(15)
+                        res_claim = requests.post(f"https://solslay.com/api/quests/claim/{q_id}", json={}, headers=self.get_headers(token), proxies=proxies, timeout=20)
+                        if res_claim.status_code in [200, 201]:
+                            d_claim = res_claim.json()
+                            if d_claim.get("success"):
+                                self.log(f"Daily Quest Completed: {q_id} | +{d_claim.get('rewards', {}).get('localCoins')} SLY", "SUCCESS")
+            except Exception as e:
+                self.log(f"Error daily quest {q_id}: {str(e)}", "ERROR")
+
+        url_list = "https://solslay.com/api/quests/list"
         try:
             res = requests.get(url_list, headers=self.get_headers(token), proxies=proxies, timeout=20)
             if res.status_code != 200: 
@@ -203,11 +221,11 @@ class SolslayBot:
             pending_quests = [q for q in data.get("quests", []) if q.get('status') == 'not_started' and q.get('type') == 'social']
 
             if pending_quests:
-                self.log(f"Found {len(pending_quests)} new quests", "INFO")
+                self.log(f"Found {len(pending_quests)} new social quests", "INFO")
                 for q in pending_quests:
                     q_id = q['questId']
                     requests.post(f"https://solslay.com/api/quests/start/{q_id}", json={}, headers=self.get_headers(token), proxies=proxies, timeout=20)
-                    time.sleep(10)
+                    time.sleep(12)
                     res_claim = requests.post(f"https://solslay.com/api/quests/claim/{q_id}", json={}, headers=self.get_headers(token), proxies=proxies, timeout=20)
                     if res_claim.status_code in [200, 201]:
                         d = res_claim.json()
@@ -309,6 +327,24 @@ class SolslayBot:
         if not attacked and not stop_event:
             self.log("Boss Battle skipped or no attacks performed", "INFO")
 
+    def process_user_stats(self, token, proxy):
+        self.log("Fetching User Stats...", "INFO")
+        url = "https://solslay.com/api/user"
+        proxies = self.get_proxy_dict(proxy)
+        try:
+            res = requests.get(url, headers=self.get_headers(token), proxies=proxies, timeout=20)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("success") and "user" in data:
+                    user = data["user"]
+                    balance = user.get("localCoinsBalance", 0)
+                    xp = user.get("xp", 0)
+                    self.log(f"Final Stats | Balance: {balance} SLY | XP: {xp}", "SUCCESS")
+            else:
+                self.log(f"Failed to fetch stats: {res.status_code}", "ERROR")
+        except Exception as e:
+            self.log(f"Stats error: {str(e)}", "ERROR")
+
     def run(self):
         self.print_banner()
         use_proxy = self.show_menu() == '1'
@@ -352,6 +388,9 @@ class SolslayBot:
                     self.random_delay()
                     
                     self.process_boss_battle(token, current_proxy)
+                    self.random_delay()
+
+                    self.process_user_stats(token, current_proxy)
                     
                     success_count += 1
                 else:
